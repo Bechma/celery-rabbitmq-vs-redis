@@ -1,0 +1,67 @@
+version: "3.0"
+
+x-celery-common:
+    &celery-common
+    image: celery
+    build: .
+    volumes: 
+        - ./:/app
+    networks:
+        - bench_net
+    depends_on:
+        broker_redis:
+            condition: service_healthy
+        backend:
+            condition: service_healthy
+        broker_rabbit:
+            condition: service_healthy
+
+services:
+    worker_redis:
+        <<: *celery-common
+        command: celery --broker redis://broker_redis:6379/0 worker
+    worker_rabbit:
+        <<: *celery-common
+        command: celery --broker pyamqp://guest:guest@broker_rabbit worker
+    backend:
+        image: redis:alpine
+        command: --port 3000
+        hostname: backend
+        networks:
+            - bench_net
+        ports:
+            - 3000:3000
+        healthcheck:
+            test: redis-cli -p 3000 ping
+            interval: 3s
+            timeout: 5s
+            retries: 5
+    broker_redis:
+        image: redis:alpine
+        networks:
+            - bench_net
+        ports:
+            - 6379:6379
+        healthcheck:
+            test: redis-cli ping
+            interval: 3s
+            timeout: 5s
+            retries: 5
+    broker_rabbit:
+        image: rabbitmq:3-management-alpine
+        networks:
+            - bench_net
+        ports:
+            - 15672:15672
+            - 5672:5672
+        healthcheck:
+            test: rabbitmq-diagnostics is_running
+            interval: 3s
+            timeout: 5s
+            retries: 5
+
+
+networks:
+    bench_net:
+        driver: overlay
+        attachable: true

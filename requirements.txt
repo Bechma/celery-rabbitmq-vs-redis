@@ -1,0 +1,2 @@
+celery[redis]
+https://github.com/mher/flower/zipball/master#egg=flower
